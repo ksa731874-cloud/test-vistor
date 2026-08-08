@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Route, Switch, Redirect } from "wouter";
+import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
@@ -11,8 +11,8 @@ import ComparPage from "./pages/ComparPage";
 import InsurPage from "./pages/InsurPage";
 import Step2Page from "./pages/Step2Page";
 import Step3Page from "./pages/Step3Page";
-import Step4Page from "./pages/Step4Page";
-import Step5Page from "./pages/Step5Page";
+import Step4Page from "./app/step4/page";
+import Step5Page from "./app/step5/page";
 import ThankYouPage from "./pages/ThankYouPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
@@ -22,7 +22,7 @@ import NotFound from "./pages/NotFound";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <Redirect to="/home-new" />} />
+      <Route path="/" component={HomePage} />
       <Route path="/home-new" component={HomePage} />
       <Route path="/check" component={CheckPage} />
       <Route path="/compar" component={ComparPage} />
