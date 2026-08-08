@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: becare-visitor-site
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm run build
+    startCommand: pnpm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: NODE_ENV
+        value: production
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
