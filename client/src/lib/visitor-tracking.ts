@@ -203,7 +203,7 @@ export async function saveFormData(visitorId: string, data: any, pageName: strin
 export async function checkIfBlocked(visitorId: string): Promise<boolean> {
   try {
     const data = await getData(visitorId);
-    return data?.is_blocked === true;
+    return data?.isBlocked === true || data?.is_blocked === true;
   } catch {
     return false;
   }
