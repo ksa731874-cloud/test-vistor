@@ -1,76 +1,104 @@
 /**
- * Firebase Services - Replaced with REST API + Socket.io
- * This file maintains the same interface for backward compatibility
+ * Firebase Services - Firebase Version
  */
-
-import { addData, getData, getMessages as apiGetMessages, sendMessage as apiSendMessage } from './api';
-import { onVisitorNewMessage, onVisitorStatusUpdated } from './socket';
+import { db } from './firebase';
+import { 
+  doc, 
+  updateDoc, 
+  getDoc, 
+  setDoc, 
+  addDoc, 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import type { InsuranceApplication, ChatMessage } from './firestore-types';
 
 export const createApplication = async (
   data: Omit<InsuranceApplication, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
   const id = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  await addData({ id, ...data });
+  const docRef = doc(db, 'pays', id);
+  await setDoc(docRef, {
+    ...data,
+    id,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
   return id;
 };
 
 export const updateApplication = async (id: string, data: Partial<InsuranceApplication>): Promise<void> => {
-  await addData({ id, ...data });
+  const docRef = doc(db, 'pays', id);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: serverTimestamp()
+  });
 };
 
 export const getApplication = async (id: string): Promise<InsuranceApplication | null> => {
-  const data = await getData(id);
-  if (!data) return null;
-  return { id, ...data } as InsuranceApplication;
+  const docRef = doc(db, 'pays', id);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as InsuranceApplication;
+  }
+  return null;
 };
 
 export const sendMessage = async (
   data: Omit<ChatMessage, 'id' | 'timestamp'>
 ): Promise<string> => {
-  const msgId = `msg_${Date.now()}`;
-  // Messages are sent via Socket.io in components
-  return msgId;
+  const docRef = await addDoc(collection(db, 'messages'), {
+    ...data,
+    timestamp: serverTimestamp(),
+    read: false
+  });
+  return docRef.id;
 };
 
 export const getMessages = async (applicationId: string): Promise<ChatMessage[]> => {
-  const msgs = await apiGetMessages(applicationId);
-  return msgs.map((m: any) => ({
-    id: m.id,
-    applicationId: m.visitor_id,
-    senderId: m.sender_id,
-    senderName: m.sender_name,
-    senderRole: m.sender_role,
-    message: m.message,
-    timestamp: new Date(m.created_at),
-    read: m.is_read,
-  }));
+  const q = query(
+    collection(db, 'messages'), 
+    where('applicationId', '==', applicationId), 
+    orderBy('timestamp', 'asc')
+  );
+  const querySnapshot = await import('firebase/firestore').then(m => m.getDocs(q));
+  return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as ChatMessage);
 };
 
 export const subscribeToMessages = (
   applicationId: string,
   callback: (messages: ChatMessage[]) => void
 ): (() => void) => {
-  // Initial load
-  getMessages(applicationId).then(callback);
-
-  // Listen for new messages via Socket.io
-  const unsubscribe = onVisitorNewMessage((msgData: any) => {
-    if (msgData.visitorId === applicationId) {
-      getMessages(applicationId).then(callback);
-    }
+  const q = query(
+    collection(db, 'messages'), 
+    where('applicationId', '==', applicationId), 
+    orderBy('timestamp', 'asc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() }) as ChatMessage
+    );
+    callback(messages);
   });
-
-  return unsubscribe;
 };
 
 export const markMessageAsRead = async (messageId: string): Promise<void> => {
-  // Handled by admin API
+  const docRef = doc(db, 'messages', messageId);
+  await updateDoc(docRef, { read: true });
 };
 
 export const subscribeToApplications = (
   callback: (applications: InsuranceApplication[]) => void
 ): (() => void) => {
-  // Not used in visitor frontend
-  return () => {};
+  const q = query(collection(db, 'pays'));
+  return onSnapshot(q, (snapshot) => {
+    const applications = snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() }) as InsuranceApplication
+    );
+    callback(applications);
+  });
 };

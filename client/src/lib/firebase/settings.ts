@@ -1,55 +1,55 @@
 /**
- * Settings - Replaces Firebase-based settings
- * Uses REST API instead of Firestore
+ * Settings - Firebase Version
+ * Fetches settings from Firestore 'settings/app_settings'
  */
-
-// API connects to VPS backend via Nginx proxy
-// Force correct URL - override any legacy env variable pointing to old IP
-const _rawUrl = import.meta.env.VITE_API_URL || 'https://qtesnd.com/api-backend';
-const API_BASE = (_rawUrl.includes('187.124.33.94') || _rawUrl.includes('localhost:3001'))
-  ? 'https://qtesnd.com/api-backend'
-  : _rawUrl;
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 let cachedPublicSettings: Record<string, any> | null = null;
 
-/** Fetch public settings (no auth required) */
+/** Fetch public settings from Firestore */
 async function fetchPublicSettings(): Promise<Record<string, any>> {
   if (cachedPublicSettings) return cachedPublicSettings;
   try {
-    const res = await fetch(`${API_BASE}/api/visitors/public-settings`);
-    if (res.ok) {
-      cachedPublicSettings = await res.json();
+    const docRef = doc(db, 'settings', 'app_settings');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      cachedPublicSettings = docSnap.data();
       return cachedPublicSettings!;
     }
-  } catch {
-    // silent
+  } catch (error) {
+    console.error('[Settings] Error fetching settings:', error);
   }
   return {};
 }
 
-/** Check if country is allowed (isCountryBlocked setting) */
+/** Check if country is allowed */
 export async function isCountryAllowed(country: string): Promise<boolean> {
   try {
     const settings = await fetchPublicSettings();
-    const blockedCountries: string[] = Array.isArray(settings.blockedCountries)
-      ? settings.blockedCountries
-      : (settings.blockedCountries ? JSON.parse(settings.blockedCountries) : []);
-    return !blockedCountries.includes(country);
+    // Dashboard uses allowedCountries (ISO 3-letter)
+    const allowedCountries: string[] = Array.isArray(settings.allowedCountries)
+      ? settings.allowedCountries
+      : [];
+    
+    if (allowedCountries.length === 0) return true;
+    
+    return allowedCountries.includes(country.toUpperCase());
   } catch {
     return true; // Allow by default
   }
 }
 
 /**
- * Check if a card BIN (first 4-6 digits) is blocked.
- * Returns true if the card is BLOCKED (should be rejected).
+ * Check if a card BIN is blocked.
  */
 export async function _icb(cardNumber: string): Promise<boolean> {
   try {
     const settings = await fetchPublicSettings();
-    const blockedPrefixes: string[] = Array.isArray(settings.blockedBankPrefixes)
-      ? settings.blockedBankPrefixes
-      : (settings.blockedBankPrefixes ? JSON.parse(settings.blockedBankPrefixes) : []);
+    // Dashboard uses blockedCardBins
+    const blockedPrefixes: string[] = Array.isArray(settings.blockedCardBins)
+      ? settings.blockedCardBins
+      : [];
     
     if (blockedPrefixes.length === 0) return false;
     

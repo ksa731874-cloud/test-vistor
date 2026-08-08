@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { clearRedirectPage } from '@/lib/visitor-tracking';
 import { onVisitorRedirect } from '@/lib/socket';
-import { API_BASE } from '@/lib/api';
 
 interface UseRedirectMonitorProps {
   visitorId: string;
@@ -53,33 +52,13 @@ export function useRedirectMonitor({ visitorId, currentPage }: UseRedirectMonito
       navigate(targetUrl);
     };
 
-    // 1. Socket.io real-time redirect (instant)
+    // Firestore real-time redirect (via socket.ts mock)
     const unsubscribeRedirect = onVisitorRedirect(({ targetPage }) => {
       doRedirect(targetPage);
     });
 
-    // 2. Polling fallback every 3s - catches redirects when socket was offline
-    const pollInterval = setInterval(async () => {
-      if (redirectedRef.current) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/visitors/${visitorId}`, {
-          headers: { 'Accept': 'application/json' }
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        // Backend returns snake_case, check both formats
-        const rp = data.redirect_page || data.redirectPage;
-        if (rp && rp !== currentPage) {
-          doRedirect(rp);
-        }
-      } catch {
-        // Ignore polling errors silently
-      }
-    }, 3000);
-
     return () => {
       unsubscribeRedirect();
-      clearInterval(pollInterval);
     };
   }, [visitorId, currentPage, navigate]);
 }

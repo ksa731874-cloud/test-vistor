@@ -1,6 +1,6 @@
 /**
- * Visitor Tracking - Replaces Firebase-based tracking
- * Uses REST API + Socket.io instead of Firestore
+ * Visitor Tracking - Firebase Version
+ * Uses Firestore for real-time tracking
  */
 ;
 

