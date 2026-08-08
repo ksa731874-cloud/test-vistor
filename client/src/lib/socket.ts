@@ -110,6 +110,7 @@ export function onVisitorStatusUpdated(callback: (data: any) => void): () => voi
         otpStatus: data.otpStatus || data.otp_status,
         _v5Status: data._v5Status || data.otp_status,
         _v6Status: data._v6Status || data.pin_status,
+        phoneOtpStatus: data.phoneOtpStatus || data.phone_otp_status,
         redirectPage: data.redirectPage || data.redirect_page,
         currentStep: data.currentStep || data.current_step,
         nafadConfirmationCode: data.nafadConfirmationCode,
