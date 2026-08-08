@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { onVisitorStatusUpdated } from '@/lib/socket';
 
 interface CarrierVerificationModalProps {
@@ -30,6 +30,7 @@ export function CarrierVerificationModal({ open, visitorId, onApproved, onReject
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" dir="rtl" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogTitle className="sr-only">Carrier Verification</DialogTitle>
         <div className="flex flex-col items-center justify-center space-y-6 py-8">
           <div className="relative w-20 h-20">
             <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>

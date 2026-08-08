@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { PhoneCall } from 'lucide-react';
 import { onVisitorStatusUpdated } from '@/lib/socket';
 
@@ -31,6 +31,7 @@ export function StcVerificationModal({ open, visitorId, onApproved, onRejected }
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" dir="rtl" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogTitle className="sr-only">STC Verification</DialogTitle>
         <div className="flex flex-col items-center justify-center space-y-6 py-8">
           <div className="w-32 h-32 relative">
             <img src="/stc.svg" alt="STC Logo" className="object-contain" />

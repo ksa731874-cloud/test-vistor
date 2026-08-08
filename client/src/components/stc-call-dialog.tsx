@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { PhoneCall } from "lucide-react"
 
 interface StcCallDialogProps {
@@ -40,6 +40,7 @@ export function StcCallDialog({ open, onComplete }: StcCallDialogProps) {
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
+        <DialogTitle className="sr-only">STC Call Dialog</DialogTitle>
         <div className="flex flex-col items-center justify-center space-y-6 py-8">
           {/* Animated Phone Icon */}
           <div className="relative">

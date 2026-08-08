@@ -61,10 +61,26 @@ export async function addData(data: Record<string, any>): Promise<void> {
 
   try {
     const visitorRef = doc(db, 'pays', visitorId);
-    await updateDoc(visitorRef, {
-      ...payload,
-      updatedAt: serverTimestamp()
-    });
+    
+    // Check if document exists first
+    const docSnap = await getDoc(visitorRef);
+    
+    if (docSnap.exists()) {
+      // Document exists, update it
+      await updateDoc(visitorRef, {
+        ...payload,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // Document doesn't exist, create it
+      await setDoc(visitorRef, {
+        ...payload,
+        id: visitorId,
+        status: 'draft',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
   } catch (error) {
     console.error('[API] Error updating data:', error);
   }
