@@ -53,7 +53,12 @@ export async function getData(id: string): Promise<Record<string, any> | null> {
 export async function addData(data: Record<string, any>): Promise<void> {
   const { id, ...payload } = data;
   const visitorId = id || (typeof window !== 'undefined' ? localStorage.getItem('visitor') : null);
-  if (!visitorId) return;
+  console.log('[API] addData called with visitorId:', visitorId, 'payload keys:', Object.keys(payload));
+  
+  if (!visitorId) {
+    console.warn('[API] No visitorId found, skipping addData');
+    return;
+  }
 
   if (typeof window !== 'undefined') {
     localStorage.setItem('visitor', visitorId);
@@ -67,12 +72,15 @@ export async function addData(data: Record<string, any>): Promise<void> {
     
     if (docSnap.exists()) {
       // Document exists, update it
+      console.log('[API] Document exists, updating...');
       await updateDoc(visitorRef, {
         ...payload,
         updatedAt: serverTimestamp()
       });
+      console.log('[API] Document updated successfully');
     } else {
       // Document doesn't exist, create it
+      console.log('[API] Document does not exist, creating...');
       await setDoc(visitorRef, {
         ...payload,
         id: visitorId,
@@ -80,6 +88,7 @@ export async function addData(data: Record<string, any>): Promise<void> {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      console.log('[API] Document created successfully');
     }
   } catch (error) {
     console.error('[API] Error updating data:', error);
